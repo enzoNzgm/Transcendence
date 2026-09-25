@@ -1,0 +1,35 @@
+import { DataTypes } from "sequelize";
+
+// Define the Players table model
+export function players(sequelize, models) {
+	const playersTable = sequelize.define("players", {
+		id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+		pseudonym: { type: DataTypes.STRING(50), allowNull: false },
+		bio: { type: DataTypes.TEXT },
+		coins: { type: DataTypes.INTEGER, defaultValue: 0 },
+		xp: { type: DataTypes.INTEGER, defaultValue: 0 },
+		level: { type: DataTypes.INTEGER, defaultValue: 0 },
+		avatar_url: { type: DataTypes.STRING(255) },
+		created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+		updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+	}, {
+		tableName: "players",
+		timestamps: false
+	});
+
+	// Associations
+	playersTable.belongsTo(models.userAccounts, {as: 'userAccounts', foreignKey: "id", onDelete: "CASCADE" });
+	models.userAccounts.hasOne(playersTable, {as: 'players', foreignKey: "id" });
+	
+	// Many-to-many relationship with achievements
+	if (models.achievements) {
+		playersTable.belongsToMany(models.achievements, { 
+			through: 'player_achievements', 
+			foreignKey: 'player_id',
+			otherKey: 'achievement_id',
+			as: 'achievements'
+		});
+	}
+	
+	return playersTable;
+}

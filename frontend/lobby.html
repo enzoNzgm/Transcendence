@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Lobby - Transcendence</title>
+	<link rel="stylesheet" href="./assets/styles.css">
+	<link rel="icon" href="./static/favicon.ico">
+	<style>
+		.game-mode-row {
+			position: relative;
+			display: flex;
+			align-items: center;
+			gap: 10px;
+		}
+
+		.game-mode-row .game-btn {
+			flex: 1;
+			width: auto;
+		}
+
+		#main-menu {
+			margin-top: 50px;
+		}
+
+		.mode-help-icon {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 20px;
+			height: 20px;
+			padding: 0;
+			border-radius: 50%;
+			border: 1px solid rgba(255, 255, 255, 0.45);
+			background: rgba(0, 0, 0, 0.25);
+			color: #f6f7fb;
+			font-size: 12px;
+			line-height: 1;
+			cursor: help;
+			user-select: none;
+		}
+
+		.mode-tooltip {
+			position: absolute;
+			left: 0;
+			top: calc(100% + 8px);
+			min-width: 280px;
+			max-width: 420px;
+			padding: 10px 14px;
+			border-radius: 14px;
+			border: 1px solid rgba(255, 255, 255, 0.14);
+			background: linear-gradient(180deg, rgba(15, 16, 21, 0.98) 0%, rgba(8, 9, 12, 0.98) 100%);
+			color: #f6f7fb;
+			font-size: 0.86rem;
+			letter-spacing: 0.01em;
+			line-height: 1.4;
+			box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+			opacity: 0;
+			visibility: hidden;
+			transform: translateY(-4px);
+			transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s ease;
+			z-index: 25;
+			pointer-events: none;
+		}
+
+		.mode-help-icon:hover+.mode-tooltip,
+		.mode-help-icon:focus-visible+.mode-tooltip {
+			opacity: 1;
+			visibility: visible;
+			transform: translateY(0);
+		}
+	</style>
+</head>
+
+<body>
+	<main class="screen screen--legacy screen--lobby-sunset lobby-page">
+		<div class="lobby-container">
+
+			<div id="game-choice" class="lobby-box">
+				<h1>Chose your game</h1>
+
+				<div class="menu-buttons">
+					<div class="game-mode-row">
+						<button class="menu-button game-btn" id="crown" aria-describedby="crown-tooltip">
+							Get the Crown !
+						</button>
+							<button type="button" class="mode-help-icon" aria-label="Crown mode info">i</button>
+							<div id="crown-tooltip" class="mode-tooltip" role="tooltip">
+								Reach the finish line first to win the crown.
+							</div>
+					</div>
+					<div class="game-mode-row">
+						<button class="menu-button game-btn" id="survive" aria-describedby="survive-tooltip">
+							Survive
+						</button>
+							<button type="button" class="mode-help-icon" aria-label="Survive mode info">i</button>
+							<div id="survive-tooltip" class="mode-tooltip" role="tooltip">
+								Stay on the platforms as long as you can. Fall, and you're out!
+							</div>
+					</div>
+				</div>
+			</div>
+			<div id="main-menu" class="lobby-box">
+				<h1> SELECT MODE </h1>
+				<div class="menu-buttons">
+					<button id="solo-btn" class="menu-button">🎯 Solo</button>
+					<button id="random-btn" class="menu-button">🎲 Match</button>
+					<button id="private-btn" class="menu-button">🔒 Private Room</button>
+				</div>
+			</div>
+
+			<div id="private-choice" class="lobby-box hidden">
+				<h2>Private Room</h2>
+
+				<div class="create-room-section">
+					<input type="text" id="custom-room-code" class="code-input"
+						placeholder="Enter custom code (optional)" maxlength="6">
+					<button id="create-room-btn" class="menu-button">Create Room</button>
+				</div>
+
+				<button id="join-room-btn" class="menu-button">Join Room</button>
+				<button id="back-btn-1" class="back-button">← Back</button>
+			</div>
+
+			<div id="join-room-section" class="lobby-box hidden">
+				<h2>Enter Room Code</h2>
+				<input type="text" id="room-code-input" class="code-input" placeholder="ABC123" maxlength="6">
+				<div class="menu-buttons">
+					<button id="confirm-join-btn" class="menu-button">Join</button>
+					<button id="back-btn-2" class="back-button">← Back</button>
+				</div>
+			</div>
+
+			<div id="room-view" class="lobby-box hidden">
+				<h2>Room: <span id="room-code">------</span></h2>
+
+				<div class="lobby-status">
+					<p id="status-text">Waiting for players...</p>
+					<p>Players: <span id="player-count">1</span> / 8</p>
+					<p id="game-countdown" class="hidden" style="font-size: 2em; color: #00ff00;">Starting in: <span
+							id="countdown-seconds">5</span></p>
+				</div>
+
+				<div class="players-list" id="players-list"></div>
+
+				<button id="start-game-btn" class="ready-button hidden">START GAME</button>
+				<button id="cancel-game-btn" class="cancel-button hidden">CANCEL</button>
+				<button id="ready-btn" class="ready-button">READY</button>
+				<button id="leave-room-btn" class="back-button">Leave Room</button>
+			</div>
+				<div id="queue-view" class="lobby-box hidden">
+				<h2>🔍 Searching for players...</h2>
+				<div id="countdown-timer">10</div>
+				<div class="lobby-status">
+					<p>Players in queue: <span id="queue-count">1</span></p>
+					<div class="loading-spinner"></div>
+				</div>
+				<button id="cancel-queue-btn" class="back-button">Cancel</button>
+			</div>
+
+		</div>
+		
+		<a class="lobby-return" href="index.html">Return</a>
+	</main>
+	
+	<div id="notification" class="notification hidden">
+		<span id="notification-message"></span>
+	</div>
+
+	<script type="module" src="./lobby.js"></script>
+</body>
+
+</html>

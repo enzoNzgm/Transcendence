@@ -1,0 +1,301 @@
+import { format } from 'date-fns';
+import { db } from "../db/index.js";
+import { checkAndUnlockAchievements } from "./achievements.controller.js";
+
+// Fonction pour calculer l'XP en fonction de la position
+function calculateXP(position, totalPlayers) {
+	// XP de base
+	const baseXP = 10;
+	
+	// Bonus selon la position
+	if (position === 1) {
+		return baseXP + 50; // 1er: 60 XP
+	} else if (position === 2) {
+		return baseXP + 30; // 2ème: 40 XP
+	} else if (position === 3) {
+		return baseXP + 20; // 3ème: 30 XP
+	} else {
+		// Les autres reçoivent l'XP de base
+		return baseXP; // 10 XP
+	}
+}
+
+// Fonction pour calculer le niveau en fonction de l'XP
+function calculateLevel(xp) {
+	// Système simple: 100 XP par niveau
+	return Math.floor(xp / 100);
+}
+
+// Fonction pour attribuer l'XP aux joueurs
+async function awardXP(players, transaction) {
+	const totalPlayers = players.length;
+	
+	for (const player of players) {
+		// Ignorer les joueurs non authentifiés (userId = -1)
+		if (player.userId === -1) continue;
+		
+		// Calculer l'XP gagné
+		const xpGained = calculateXP(player.position, totalPlayers);
+		
+		// Récupérer le joueur actuel
+		const dbPlayer = await db.models.players.findByPk(player.userId, { transaction });
+		
+		if (dbPlayer) {
+			const newXP = dbPlayer.xp + xpGained;
+			const newLevel = calculateLevel(newXP);
+			
+			await dbPlayer.update({
+				xp: newXP,
+				level: newLevel
+			}, { transaction });
+			
+			console.log(`💫 ${dbPlayer.pseudonym} gagne ${xpGained} XP (position ${player.position}). Total: ${newXP} XP, Level: ${newLevel}`);
+		}
+	}
+}
+
+/**
+ * @swagger
+ * /games:
+ *   get:
+ *     summary: Get games history
+ *     tags:
+ *       - Games
+ *     parameters:
+ *       - in: query
+ *         name: mode
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Filter by game mode
+ *       - in: query
+ *         name: winner
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Filter by winner pseudonym
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *     responses:
+ *       200:
+ *         description: List of games
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 metadata:
+ *                   type: object
+ */
+export async function gamesHistory(req, res) {
+	try {
+		const { mode, winner, limit = 50, page = 1 } = req.query;
+
+		const history = await db.models.games.findAndCountAll({
+			subQuery: false,
+			where: mode ? { mode } : undefined,
+			attributes: [
+				'mode',
+				[db.sequelize.literal("DATE_FORMAT(start_time, '%Y-%m-%d %H:%i:%s')"), 'date'],
+				[db.sequelize.literal("SEC_TO_TIME(TIMESTAMPDIFF(SECOND, start_time, end_time))"), 'duration'],
+				[db.sequelize.col('wins->players.pseudonym'), 'winner']
+			],
+			include: [{
+				model: db.models.playerStats,
+				as: 'wins',
+				attributes: [],
+				required: true,
+				include: [{
+					model: db.models.players,
+					as: 'players',
+					attributes: [],
+					required: true,
+					where: winner ? { pseudonym: winner } : undefined
+				}],
+			}],
+			order: [["date", 'DESC']],
+			limit,
+			offset: (page - 1) * limit
+		});
+
+		if (!history.rows)
+			return res.json({ msg: "No history found" });
+
+		return res.json({
+			data: history.rows,
+			metadata: { total: history.count, limit, page, mode, winner }
+		});
+
+	} catch (error) {
+		console.error('Error in \'gamesHistory\' function: ', error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+};
+
+/**
+ * @swagger
+ * /games/{id}:
+ *   get:
+ *     summary: Get specific game history by ID
+ *     tags:
+ *       - Games
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: Game ID
+ *     responses:
+ *       200:
+ *         description: Game history
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                 metadata:
+ *                   type: object
+ */
+export async function gamesIdHistory(req, res) {
+	try {
+		const { id } = req.params;
+
+		const history = await db.models.games.findAndCountAll({
+			subQuery: false,
+			where: { id },
+			attributes: [
+				'mode',
+				[db.sequelize.literal("DATE_FORMAT(start_time, '%Y-%m-%d %H:%i:%s')"), 'date'],
+				[db.sequelize.literal("SEC_TO_TIME(TIMESTAMPDIFF(SECOND, start_time, end_time))"), 'duration']
+			],
+			include: [{
+				model: db.models.playerStats,
+				as: 'playerStats',
+				attributes: ['position'],
+				required: true,
+				order: [['position', 'ASC']],
+				include: [{
+					model: db.models.players,
+					as: 'players',
+					attributes: ['pseudonym'],
+					required: true,
+				}],
+			}],
+		});
+
+		if (!history.rows)
+			return res.json({ msg: "No history found"});
+
+		// Transform each row to the desired format
+		const formatted = history.rows.map(game => {
+			const playersObj = {};
+			game.playerStats.forEach(ps => {
+				const pos = ps.position;
+				const name = ps.players.pseudonym;
+				playersObj[pos] = name;
+			});
+
+			return {
+				mode: game.mode,
+				date: game.get('date'),
+				duration: game.get('duration'),
+				players: playersObj
+			};
+		});
+
+		return res.json({
+			data: formatted,
+			metadata: { total: history.count }
+		});
+
+	} catch (error) {
+		console.error('Error in \'gamesIdHistory\' function: ', error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+};
+
+// Internal only
+export async function gamesSave(req, res) {
+	try {
+		const gameData = req.body;
+
+		// Debug: print full body
+		console.log("=== req.body ===");
+		console.log(JSON.stringify(gameData, null, 2));
+
+		if (!gameData.roomId || !gameData.gameType || !gameData.players || !gameData.players.length) {
+			return res.status(400).json({ error: "Invalid game payload." });
+		}
+
+		// Retrieve and format gameData
+		const roomId = gameData.roomId;
+		const mode = gameData.gameType;
+		const start_time = format(new Date(gameData.startTime), 'yyyy-MM-dd HH:mm:ss');
+		const end_time = format(new Date(gameData.endTime), 'yyyy-MM-dd HH:mm:ss');
+		// const duration = format(new Date(gameData.elapsedTime * 1000), 'HH:mm:ss');
+
+		const transaction = await db.sequelize.transaction();
+
+		try {
+			const game = await db.models.games.create({ roomId, mode, start_time, end_time }, { transaction });
+
+			const ids = gameData.players.map(p => p.id);
+			if (new Set(ids).size !== ids.length) {
+				await transaction.rollback();
+				return res.status(400).json({ error: "Duplicate player_id detected." });
+			}
+
+			const statsRows = gameData.players.map(p => ({
+				player_id: p.userId,
+				game_id: game.id,
+				chrono: p.chrono ?? 0,
+				position: p.position ?? null,
+				eliminated: p.eliminated ?? null
+			}));
+
+			await db.models.playerStats.bulkCreate(statsRows, { transaction });
+
+			// Attribution de l'XP en fonction de la position
+			await awardXP(gameData.players, transaction);
+
+			// Vérifier et débloquer les achievements pour chaque joueur
+			for (const player of gameData.players) {
+				if (player.userId !== -1) {
+					const unlockedAchievements = await checkAndUnlockAchievements(player.userId, gameData, transaction);
+					if (unlockedAchievements.length > 0) {
+						console.log(`🏆 Player ${player.userId} unlocked ${unlockedAchievements.length} achievement(s)`);
+					}
+				}
+			}
+
+			await transaction.commit();
+
+			console.log("✅ Game saved successfully");
+
+			return res.status(201).json({ message: "Game saved successfully", game_id: game.id });
+
+		} catch (err) {
+			await transaction.rollback();
+			throw err;
+		}
+
+	} catch (error) {
+		console.error("Error in 'gamesSave' function:", error);
+		return res.status(500).json({ error: "Internal server error" });
+	}
+};

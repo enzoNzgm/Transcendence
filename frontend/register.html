@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Register | ft_transcendence</title>
+  <link rel="stylesheet" href="./assets/styles.css" />
+	<link rel="icon" href="./static/favicon.ico">
+</head>
+<body>
+  <main class="screen screen--legacy screen--auth">
+    <a class="auth-return" href="index.html">return</a>
+
+    <section class="auth-card" aria-labelledby="register-title">
+      <h1 id="register-title" class="auth-title">Create Account</h1>
+
+      <form id="registerForm" class="auth-form" autocomplete="on">
+        <label class="auth-field">
+          <span>Username</span>
+          <input class="auth-input" type="text" id="username" name="username" placeholder="Enter a username..." required />
+        </label>
+
+        <label class="auth-field">
+          <span>Email address</span>
+          <input class="auth-input" type="email" id="email" name="email" placeholder="Enter your email address..." required />
+        </label>
+
+        <label class="auth-field">
+          <span>Password</span>
+          <input class="auth-input" type="password" id="password" name="password" placeholder="Enter your password..." required />
+        </label>
+
+        <label class="auth-field">
+          <span>Confirm Password</span>
+          <input class="auth-input" type="password" id="confirmPassword" name="confirmPassword" placeholder="Enter your password again..." required />
+        </label>
+
+		<label>
+			<span>Activer la 2FA</span>
+			<input type="checkbox" name="enable_2FA" id="auth-field">
+		</label>
+
+        <button class="auth-submit" type="submit">Sign up</button>
+        <p id="message" class="auth-helper"></p>
+      </form>
+
+      <p class="auth-switch">
+        Already have an account?
+        <a href="already.html">Sign in</a>
+      </p>
+    </section>
+  </main>
+
+	<script>
+	document.getElementById('registerForm').addEventListener('submit', async (e) => {
+			e.preventDefault();
+			const username = document.getElementById('username').value;
+			const email = document.getElementById('email').value;
+			const password = document.getElementById('password').value;
+			const confirmPassword = document.getElementById('confirmPassword').value;
+			const enable_2FA = document.getElementById('auth-field').checked;
+			const message = document.getElementById('message');
+
+			try {
+				const response = await fetch('/api/register', {
+					method: 'POST',
+					headers: {'Content-Type' : 'application/json'},
+					body: JSON.stringify({username, email, password, confirmPassword, enable_2FA})
+				});
+
+				const data = await response.json();
+
+		if (response.ok) {
+			// message.textContent = `Inscription reussie! Bienvenue ${data.user.email}`;
+			// message.style.color = 'green';
+			setTimeout(() => window.location.href = 'success.html', 1000);
+		} else {
+			sessionStorage.setItem('errorMessage', data.error);
+			window.location.href = 'error.html';
+					}
+		} catch (err) {
+			sessionStorage.setItem('errorMessage', 'Failed to connect to the server');
+			window.location.href = 'error.html';
+		}
+});
+</script>
+</body>
+</html>

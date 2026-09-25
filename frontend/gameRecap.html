@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Game Recap</title>
+    <link rel="stylesheet" href="./assets/styles.css" />
+	<link rel="icon" href="./static/favicon.ico">
+    <style>
+      .recap-screen {
+        background: linear-gradient(180deg, #0857b3 0%, #569ded 100%);
+      }
+
+      .recap-screen .hero-ribbon {
+        background: #fffb01;
+        border-bottom-color: rgba(86, 157, 237, 0.35);
+      }
+
+      .recap-screen .ticker-track {
+        color: #569ded;
+        text-shadow: 0 3px 0 rgba(0, 0, 0, 0.18);
+        animation: recap-ticker 8.5s linear infinite;
+      }
+
+      .recap-screen .history-board {
+        background: rgba(231, 234, 241, 0.9);
+        border: 1px solid rgba(210, 215, 224, 0.95);
+      }
+
+      .recap-screen .history-board::before {
+        border-color: #ff4fd8;
+      }
+
+      .recap-screen .alien[src*="perso_success"] {
+        width: 165px;
+        height: auto;
+      }
+
+      .recap-screen .alien[src*="perso_victory"] {
+        width: 275px;
+        height: auto;
+      }
+
+      .recap-row--five {
+        grid-template-columns: 0.55fr 1.2fr 1.1fr 1fr 0.8fr;
+      }
+
+      .back-to-lobby-outline {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid #9aa0aa;
+        border-radius: 9999px;
+        padding: 0.6rem 1.3rem;
+        background: transparent;
+        color: #ffffff;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        text-decoration: none;
+        transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+      }
+
+      .back-to-lobby-outline:hover {
+        transform: translateY(-1px);
+      }
+
+      .back-to-lobby-outline:active {
+        background: #39ff14;
+        color: #0b0b0b;
+        border-color: #39ff14;
+        text-shadow: none;
+      }
+
+      @keyframes recap-ticker {
+        0% {
+          transform: translateX(0);
+        }
+        100% {
+          transform: translateX(-50%);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="screen screen--legacy screen--history recap-screen !pt-0">
+      <header class="hero-ribbon w-full">
+        <div class="ticker" aria-hidden="true">
+          <div class="ticker-track">
+            <span>VICTORY</span><span>VICTORY</span><span>VICTORY</span><span>VICTORY</span><span>VICTORY</span>
+            <span>VICTORY</span><span>VICTORY</span><span>VICTORY</span><span>VICTORY</span><span>VICTORY</span>
+          </div>
+          <div class="ticker-track" aria-hidden="true">
+            <span>VICTORY</span><span>VICTORY</span><span>VICTORY</span><span>VICTORY</span><span>VICTORY</span>
+            <span>VICTORY</span><span>VICTORY</span><span>VICTORY</span><span>VICTORY</span><span>VICTORY</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="history-board mt-2" aria-labelledby="recap-title">
+        <header class="history-header">
+          <h1 id="recap-title" class="history-title">Game Recap</h1>
+        </header>
+
+        <div class="history-table">
+          <h2 class="text-center font-display text-2xl uppercase tracking-[0.12em] text-[#3f2a65]">Well done champion!</h2>
+          <div class="history-row history-row--head history-row--leaderboard recap-row--five">
+            <span>Rank</span>
+            <span>Login</span>
+            <span class="text-center">Date</span>
+            <span>Mode</span>
+            <span class="history-score">Time</span>
+          </div>
+          <div id="leaderboard-list" class="grid gap-3"></div>
+        </div>
+
+        <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <a class="btn btn--ghost" href="leaderboard2.html">Leaderboard</a>
+        </div>
+      </section>
+
+      <a class="back-to-lobby-outline mt-5" href="lobby.html">Back to Lobby</a>
+      		<div class="alien-wrap" data-alien>
+			<img class="alien" src="/perso_color/perso_victory.png" alt="Alien success">
+		</div>
+          		<div class="alien-wrap" data-alien>
+			<img class="alien" src="/perso_color/perso_success.png" alt="Alien success">
+		</div>
+    </main>
+
+    <script type="module">
+      const urlParams = new URLSearchParams(window.location.search);
+      const gameId = urlParams.get("id");
+      const list = document.getElementById("leaderboard-list");
+
+      const createCell = (text, className = "") => {
+        const span = document.createElement("span");
+        span.textContent = text;
+        if (className) span.className = className;
+        return span;
+      };
+
+      const createRow = ({ rank, name, date, mode, duration }) => {
+        const row = document.createElement("div");
+        row.className = "history-row history-row--leaderboard recap-row--five";
+        row.append(
+          createCell(`#${rank}`, "history-rank"),
+          createCell(name || "-"),
+          createCell(date || "-", "text-center"),
+          createCell(mode || "-"),
+          createCell(duration || "-", "history-score"),
+        );
+        return row;
+      };
+
+      const fillLeaderboard = (players, date, mode, duration) => {
+        list.innerHTML = "";
+
+        const entries = Array.isArray(players)
+          ? players.map((name, idx) => [idx + 1, name])
+          : Object.entries(players || {}).sort((a, b) => Number(a[0]) - Number(b[0]));
+
+        if (!entries.length) {
+          list.appendChild(createRow({ rank: 1, name: "No players", date, mode, duration }));
+          return;
+        }
+
+        entries.forEach(([position, pseudo]) => {
+          list.appendChild(
+            createRow({
+              rank: position,
+              name: String(pseudo),
+              date,
+              mode,
+              duration,
+            }),
+          );
+        });
+      };
+
+      const formatDuration = (value) => {
+        if (!value && value !== 0) return "-";
+        if (typeof value === "string") return value;
+
+        const totalSeconds = Number(value);
+        if (Number.isNaN(totalSeconds)) return String(value);
+
+        const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, "0");
+        const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, "0");
+        const seconds = Math.floor(totalSeconds % 60).toString().padStart(2, "0");
+        return `${hours}:${minutes}:${seconds}`;
+      };
+
+      try {
+        if (!gameId) throw new Error("Missing game id");
+
+        const response = await fetch(`/api/games/${gameId}`, { credentials: "include" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const payload = await response.json();
+        const game = payload?.data?.[0];
+        if (!game) throw new Error("Game not found");
+
+        const mode = game.mode || "-";
+        const date = game.date || "-";
+        const duration = formatDuration(game.duration);
+
+        const players = game.players || {};
+
+        fillLeaderboard(players, date, mode, duration);
+      } catch (error) {
+        fillLeaderboard([], "-", "-", "-");
+      }
+    </script>
+    <script src="./alienMovie.js"></script>
+  </body>
+</html>

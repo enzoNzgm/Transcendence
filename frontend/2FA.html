@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2FA | ft_transcendence</title>
+  <link rel="stylesheet" href="./assets/styles.css">
+	<link rel="icon" href="./static/favicon.ico">
+</head>
+<body>
+  <main class="screen screen--legacy screen--auth">
+    <a class="auth-return" href="already.html">return</a>
+
+    <section class="auth-card" aria-labelledby="2fa-title">
+      <h1 id="2fa-title" class="auth-title">Verification 2FA</h1>
+
+      <form class="auth-form" id="2faForm" autocomplete="off">
+        <label class="auth-field">
+          <span>Code a 6 chiffres</span>
+          <input class="auth-input" type="text" id="code" name="code" placeholder="Entrez le code..." maxlength="6" pattern="[0-9]{6}" required />
+        </label>
+
+        <button class="auth-submit" type="submit">Valider</button>
+        <p id="message" class="auth-helper"></p>
+      </form>
+    </section>
+  </main>on>
+	</main>
+
+	<script>
+		const messageEl = document.getElementById('message');
+		const userId = localStorage.getItem('pending_2fa_user_id');
+
+		// Si pas de user_id en attente, rediriger vers login
+		if (!userId) {
+			window.location.href = 'already.html';
+		}
+
+		document.getElementById('2faForm').addEventListener('submit', async (e) => {
+			e.preventDefault();
+			const code = document.getElementById('code').value;
+
+			try {
+				const response = await fetch('/api/2fa/verify', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ user_id: userId, code })
+				});
+
+				const data = await response.json();
+
+				if (response.ok) {
+					// Supprimer le user_id temporaire
+					localStorage.removeItem('pending_2fa_user_id');
+
+					// Stocker le token et user
+					localStorage.setItem('token', data.token);
+					localStorage.setItem('user', JSON.stringify(data.user));
+
+					messageEl.textContent = `Verification reussie! Bienvenue ${data.user.username}`;
+					messageEl.style.color = 'green';
+
+					setTimeout(() => window.location.href = 'lobby.html', 1000);
+				} else {
+					messageEl.textContent = data.error;
+					messageEl.style.color = 'red';
+				}
+			} catch (err) {
+				messageEl.textContent = 'Erreur de connexion au serveur';
+				messageEl.style.color = 'red';
+			}
+		});
+	</script>
+</body>
+</html>
