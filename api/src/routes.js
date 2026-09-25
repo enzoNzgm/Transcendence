@@ -22,7 +22,10 @@ routes.post("/games", gamesSave);
 // ---------- Authentication check ----------
 routes.use("/", checkAuthToken);
 
-routes.get("/me", (req, res) => res.status(200).json(req.user));
+routes.get("/me", (req, res) => {
+	const { password_hash, ...user } = req.user.toJSON();
+	res.status(200).json(user);
+});
 
 // ---------- Users ----------
 routes.put("/users/me/password", checkAuthToken, usersMePassword);
